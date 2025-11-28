@@ -67,10 +67,14 @@ class FAABaseModel(pl.LightningModule):
         return (grad.norm(2, dim=1) - 1).pow(2).mean()
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        input, target = batch
-        b = input.size(0) // 2
-        a_input, a_target = input[:b], target[:b]
-        n_input, n_target = input[b:], target[b:]
+        if isinstance(batch, dict):
+            a_input, a_target = batch["source"]
+            n_input, n_target = batch["target"]
+        else:
+            input, target = batch
+            b = input.size(0) // 2
+            a_input, a_target = input[:b], target[:b]
+            n_input, n_target = input[b:], target[b:]
 
         main_optimizer, policy_optimizer = self.optimizers(use_pl_optimizer=True)
 

@@ -18,15 +18,20 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
         self.data_cfg = data_cfg
         self.transform = self.create_transform()
         self.dataset = None
+        self.target_dataset = None
 
     def prepare_data(self):
         self._instantiate_dataset()
 
     def setup(self, stage=None):
         self.dataset = self._instantiate_dataset()
+        self.target_dataset = self._instantiate_target_dataset()
 
     def train_dataloader(self):
         dataloader = instantiate(self.data_cfg.dataloader, dataset=self.dataset)
+        if self.target_dataset:
+            target_dataloader = instantiate(self.data_cfg.dataloader, dataset=self.target_dataset)
+            return {"source": dataloader, "target": target_dataloader}
         return dataloader
 
     def create_transform(self):
@@ -77,3 +82,15 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
         else:
             raise ValueError(f"You should provide a correct dataset in data.dataset, got {data_cfg.dataset}")
         return dataset
+
+    def _instantiate_target_dataset(self):
+        data_cfg = self.data_cfg
+        transform = self.transform
+        if getattr(data_cfg, "target_dataset", None):
+            # Allow target dataset to have its own transform if specified in config, 
+            # otherwise use the shared transform.
+            # However, usually for stylization, the target might need the same preprocessing.
+            # We pass 'transform' as a kwarg to instantiate.
+            dataset = instantiate(data_cfg.target_dataset, transform=transform)
+            return dataset
+        return None
