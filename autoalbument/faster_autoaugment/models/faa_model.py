@@ -68,6 +68,8 @@ class FAABaseModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         print(f"DEBUG: type(batch)={type(batch)}")
+        if isinstance(batch, str):
+            print(f"DEBUG: batch='{batch}'")
         if isinstance(batch, (list, tuple)):
             print(f"DEBUG: len(batch)={len(batch)}")
             if len(batch) > 0:
