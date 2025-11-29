@@ -67,13 +67,6 @@ class FAABaseModel(pl.LightningModule):
         return (grad.norm(2, dim=1) - 1).pow(2).mean()
 
     def training_step(self, batch, batch_idx, optimizer_idx):
-        print(f"DEBUG: type(batch)={type(batch)}")
-        if isinstance(batch, str):
-            print(f"DEBUG: batch='{batch}'")
-        if isinstance(batch, (list, tuple)):
-            print(f"DEBUG: len(batch)={len(batch)}")
-            if len(batch) > 0:
-                print(f"DEBUG: type(batch[0])={type(batch[0])}")
         if isinstance(batch, dict):
             a_input, a_target = batch["source"]
             n_input, n_target = batch["target"]

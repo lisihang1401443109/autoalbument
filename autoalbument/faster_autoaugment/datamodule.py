@@ -12,6 +12,20 @@ from autoalbument.utils.hydra import get_dataset_cls
 log = logging.getLogger(__name__)
 
 
+class CombinedLoader:
+    def __init__(self, loaders):
+        self.loaders = loaders
+
+    def __iter__(self):
+        source_iter = iter(self.loaders["source"])
+        target_iter = iter(self.loaders["target"])
+        for batch_source, batch_target in zip(source_iter, target_iter):
+            yield {"source": batch_source, "target": batch_target}
+
+    def __len__(self):
+        return min(len(self.loaders["source"]), len(self.loaders["target"]))
+
+
 class FasterAutoAugmentDataModule(pl.LightningDataModule):
     def __init__(self, data_cfg):
         super().__init__()
@@ -31,7 +45,7 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
         dataloader = instantiate(self.data_cfg.dataloader, dataset=self.dataset)
         if self.target_dataset:
             target_dataloader = instantiate(self.data_cfg.dataloader, dataset=self.target_dataset)
-            return {"source": dataloader, "target": target_dataloader}
+            return CombinedLoader({"source": dataloader, "target": target_dataloader})
         return dataloader
 
     def create_transform(self):
