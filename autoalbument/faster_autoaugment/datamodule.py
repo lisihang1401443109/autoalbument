@@ -48,26 +48,39 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
             return CombinedLoader({"source": dataloader, "target": target_dataloader})
         return dataloader
 
-    def create_transform(self):
+    def create_transform(self, extra_preprocessing=None):
         data_cfg = self.data_cfg
         normalization_config = data_cfg.normalization
         input_dtype = data_cfg.input_dtype
-        transform = A.Compose(
-            [
-                *self.get_preprocessing_transforms(),
-                A.Normalize(
-                    mean=normalization_config.mean,
-                    std=normalization_config.std,
-                    max_pixel_value=MAX_VALUES_BY_INPUT_DTYPE[input_dtype],
-                ),
-                ToTensorV2(transpose_mask=True),
-            ]
-        )
-        log.info(f"Preprocessing transform:\n{transform}")
+        
+        transforms = [
+            *self.get_preprocessing_transforms(),
+        ]
+        
+        if extra_preprocessing:
+            transforms.extend(extra_preprocessing)
+
+        transforms.extend([
+            A.Normalize(
+                mean=normalization_config.mean,
+                std=normalization_config.std,
+                max_pixel_value=MAX_VALUES_BY_INPUT_DTYPE[input_dtype],
+            ),
+            ToTensorV2(transpose_mask=True),
+        ])
+        
+        transform = A.Compose(transforms)
+        log.info(f"Preprocessing transform (extra={bool(extra_preprocessing)}):\n{transform}")
         return transform
 
     def get_preprocessing_transforms(self):
-        preprocessing_config = self.data_cfg.preprocessing
+        return self._get_transforms_from_config(self.data_cfg.preprocessing)
+        
+    def get_target_preprocessing_transforms(self):
+        # target_preprocessing is optional in config schema, so we use getattr or check existence
+        return self._get_transforms_from_config(getattr(self.data_cfg, "target_preprocessing", None))
+
+    def _get_transforms_from_config(self, preprocessing_config):
         if not preprocessing_config:
             return []
         preprocessing_config = OmegaConf.to_container(preprocessing_config, resolve=True)
@@ -99,12 +112,11 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
 
     def _instantiate_target_dataset(self):
         data_cfg = self.data_cfg
-        transform = self.transform
+        # Create a specific transform for target dataset that includes target_preprocessing
+        target_extra = self.get_target_preprocessing_transforms()
+        target_transform = self.create_transform(extra_preprocessing=target_extra)
+        
         if getattr(data_cfg, "target_dataset", None):
-            # Allow target dataset to have its own transform if specified in config, 
-            # otherwise use the shared transform.
-            # However, usually for stylization, the target might need the same preprocessing.
-            # We pass 'transform' as a kwarg to instantiate.
-            dataset = instantiate(data_cfg.target_dataset, transform=transform)
+            dataset = instantiate(data_cfg.target_dataset, transform=target_transform)
             return dataset
         return None
