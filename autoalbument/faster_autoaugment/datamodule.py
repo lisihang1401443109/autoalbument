@@ -114,6 +114,11 @@ class FasterAutoAugmentDataModule(pl.LightningDataModule):
         data_cfg = self.data_cfg
         # Create a specific transform for target dataset that includes target_preprocessing
         target_extra = self.get_target_preprocessing_transforms()
+        if target_extra:
+            log.info(f"Applying {len(target_extra)} target_preprocessing transforms to target dataset.")
+        else:
+            log.info("No target_preprocessing transforms found for target dataset.")
+            
         target_transform = self.create_transform(extra_preprocessing=target_extra)
         
         if getattr(data_cfg, "target_dataset", None):
